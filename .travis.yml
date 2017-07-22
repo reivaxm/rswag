@@ -5,8 +5,8 @@ rvm:
 
 env:
   - RAILS_VERSION=5.1.2
-  - RAILS_VERSION=4.2.0
-  - RAILS_VERSION=3.2.22
+#  - RAILS_VERSION=4.2.0
+#  - RAILS_VERSION=3.2.22
 
 cache:
   directories:
@@ -21,11 +21,14 @@ before_script:
 
 script: ./ci/test.sh
 
-deploy:
-  provider: script
-  script: ./ci/deploy.sh
-  on:
-    branch: simplify-ci
+jobs:
+  include:
+    - stage: deploy
+      deploy:
+        provider: script
+        script: ./ci/deploy.sh
+        on:
+          branch: simplify-ci
 
 #jobs:
 #  include:

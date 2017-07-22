@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
+export TRAVIS_TAG=1.5.0
+
 ROOT_PATH=$PWD
 VERSION=$TRAVIS_TAG
 set -e # abort if anything fails
-
 
 echo '####################'
 echo 'Build Gems'
@@ -33,19 +34,19 @@ echo ''
 
 echo '##### rswag-api #####'
 cd $ROOT_PATH/rswag-api
-gem push rswag-api-$VERSION.gem
+gem push rswag-api-$VERSION.gem -k $RUBYGEMS_API_KEY
 
 echo '##### rswag-specs #####'
 cd $ROOT_PATH/rswag-specs
-gem push rswag-specs-$VERSION.gem
+gem push rswag-specs-$VERSION.gem -k $RUBYGEMS_API_KEY
 
 echo '##### rswag-ui #####'
 cd $ROOT_PATH/rswag-ui
-gem push rswag-ui-$VERSION.gem
+gem push rswag-ui-$VERSION.gem -k $RUBYGEMS_API_KEY
 
 echo '##### rswag #####'
 cd $ROOT_PATH/rswag
-gem push rswag-$VERSION.gem
+gem push rswag-$VERSION.gem -k $RUBYGEMS_API_KEY
 
 # Cleanup
 cd $ROOT_PATH
