@@ -1,8 +1,8 @@
+# frozen_string_literal: true
+
 module Rswag
   module Specs
-
     class Configuration
-
       def initialize(rspec_config)
         @rspec_config = rspec_config
       end

@@ -1,6 +1,8 @@
 rswag (formerly swagger_rails)
 =========
-[![Build Status](https://travis-ci.org/domaindrivendev/rswag.svg?branch=master)](https://travis-ci.org/domaindrivendev/rswag)
+[![Build Status](https://travis-ci.org/reivaxm/rswag.svg?branch=master)](https://travis-ci.org/reivaxm/rswag)
+
+This version is an update to new Swagger version with support of openapi.
 
 [Swagger](http://swagger.io) tooling for Rails API's. Generate beautiful API documentation, including a UI to explore and test operations, directly from your rspec integration tests.
 

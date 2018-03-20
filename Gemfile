@@ -1,10 +1,13 @@
-source "https://rubygems.org"
+# frozen_string_literal: true
 
-# Allow the rails version to come from an ENV setting so Travis can test multiple versions.
+source 'https://rubygems.org'
+
+# Allow the rails version to come from an ENV setting
+# so Travis can test multiple versions.
 # See http://www.schneems.com/post/50991826838/testing-against-multiple-rails-versions/
 rails_version = ENV['RAILS_VERSION'] || '5.1.2'
 
-gem 'rails', "#{rails_version}"
+gem 'rails', rails_version
 
 case rails_version.split('.').first
 when '3'
@@ -15,22 +18,22 @@ end
 
 gem 'sqlite3'
 
-gem 'rswag-specs', path: './rswag-specs'
 gem 'rswag-api', path: './rswag-api'
+gem 'rswag-specs', path: './rswag-specs'
 gem 'rswag-ui', path: './rswag-ui'
 
 # To use debugger
 # gem 'debugger'
 
 group :test do
-  gem 'test-unit'
-  gem 'rspec-rails'
-  gem 'generator_spec'
   gem 'capybara'
   gem 'capybara-webkit'
+  gem 'generator_spec'
+  gem 'rspec-rails'
+  gem 'test-unit'
 end
 
 group :assets do
-  gem 'uglifier'
   gem 'therubyracer'
+  gem 'uglifier'
 end
