@@ -41,7 +41,7 @@ module Rswag
       def derive_security_params(metadata, swagger_doc)
         requirements = metadata[:operation][:security] || swagger_doc[:security] || []
         scheme_names = requirements.flat_map(&:keys)
-        if metadata.try(:openapi).present?
+        out = if swagger_doc[:openapi].present?
           schemes = (swagger_doc.dig(:components, :securitySchemes) || {}).slice(*scheme_names).values
 
           schemes.map do |scheme|
@@ -56,6 +56,8 @@ module Rswag
             param.merge(type: :string, required: requirements.one?)
           end
         end
+        STDERR.puts out.inspect
+        out
       end
 
       def resolve_parameter(ref, swagger_doc)
