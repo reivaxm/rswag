@@ -59,6 +59,13 @@ module Rswag
         metadata[:response][:schema] = value
       end
 
+      def content(payload)
+        type = payload.delete(:mime) || 'application/json'
+        metadata[:response][:content] ||= {}
+        metadata[:response][:content][type] ||= {}
+        metadata[:response][:content][type][:schema] = payload
+      end
+
       def header(name, attributes)
         metadata[:response][:headers] ||= {}
         metadata[:response][:headers][name] = attributes

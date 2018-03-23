@@ -41,7 +41,7 @@ module Rswag
       def derive_security_params(metadata, swagger_doc)
         requirements = metadata[:operation][:security] || swagger_doc[:security] || []
         scheme_names = requirements.flat_map(&:keys)
-        out = if swagger_doc[:openapi].present?
+        if swagger_doc[:openapi].present?
           schemes = (swagger_doc.dig(:components, :securitySchemes) || {}).slice(*scheme_names).values
 
           schemes.map do |scheme|
@@ -56,8 +56,6 @@ module Rswag
             param.merge(type: :string, required: requirements.one?)
           end
         end
-        STDERR.puts out.inspect
-        out
       end
 
       def resolve_parameter(ref, swagger_doc)
@@ -107,7 +105,13 @@ module Rswag
       def add_headers(request, metadata, swagger_doc, parameters, example)
         tuples = parameters
                  .select { |p| p[:in] == :header }
-                 .map { |p| [p[:name], example.send(p[:name]).to_s] }
+                 .map do |p|
+          begin
+            [p[:name], example.send(p[:name]).to_s]
+          rescue NoMethodError
+            nil
+          end
+        end.compact
 
         # Accept header
         produces = metadata[:operation][:produces] || swagger_doc[:produces]
