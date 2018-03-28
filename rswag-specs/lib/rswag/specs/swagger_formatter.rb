@@ -1,5 +1,6 @@
 require 'active_support/core_ext/hash/deep_merge'
 require 'swagger_helper'
+require 'yaml'
 
 module Rswag
   module Specs
@@ -37,7 +38,9 @@ module Rswag
           FileUtils.mkdir_p dirname unless File.exists?(dirname)
 
           File.open(file_path, 'w') do |file|
-            file.write(JSON.pretty_generate(doc))
+            content = JSON.pretty_generate(doc)
+            content = JSON.parse(content).to_yaml if doc.key?(:openapi)
+            file.write(content)
           end
 
           @output.puts "Swagger doc generated at #{file_path}"

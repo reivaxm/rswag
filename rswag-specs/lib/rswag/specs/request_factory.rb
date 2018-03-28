@@ -6,7 +6,7 @@ require 'json'
 
 module Rswag
   module Specs
-    class RequestFactory
+    class RequestFactory # rubocop:disable ClassLength
       def initialize(config = ::Rswag::Specs.config)
         @config = config
       end
@@ -28,9 +28,11 @@ module Rswag
       def expand_parameters(metadata, swagger_doc, example)
         operation_params = metadata[:operation][:parameters] || []
         path_item_params = metadata[:path_item][:parameters] || []
+        request_body_params = explore_request_body_params(metadata)
         security_params = derive_security_params(metadata, swagger_doc)
 
         operation_params
+          .concat(request_body_params)
           .concat(path_item_params)
           .concat(security_params)
           .map { |p| p['$ref'] ? resolve_parameter(p['$ref'], swagger_doc) : p }
@@ -56,6 +58,13 @@ module Rswag
             param.merge(type: :string, required: requirements.one?)
           end
         end
+      end
+
+      def explore_request_body_params(metadata)
+        (metadata.dig(:operation, :requestBody, :content) || {}).map do |data|
+          required = data[1].dig(:schema, :required)
+          (data[1].dig(:schema, :properties) || {}).keys.map { |name| { name: name, required: required.include?(name) } }
+        end.flatten
       end
 
       def resolve_parameter(ref, swagger_doc)

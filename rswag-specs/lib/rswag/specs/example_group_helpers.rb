@@ -50,6 +50,38 @@ module Rswag
         end
       end
 
+      def request_body(payload) # rubocop:disable AbcSize,PerceivedComplexity
+        type = payload.delete(:mime) || 'application/x-www-form-urlencoded'
+        body_required = payload.delete(:body_required) || type == 'application/x-www-form-urlencoded'
+        metadata[:operation][:requestBody] ||= {}
+        metadata[:operation][:requestBody][:required] = body_required
+        metadata[:operation][:requestBody][:content] ||= {}
+        metadata[:operation][:requestBody][:content][type] ||= {}
+        if type != 'application/x-www-form-urlencoded'
+          metadata[:operation][:requestBody][:content][type][:schema] = payload
+        else
+          metadata[:operation][:requestBody][:content][type][:schema] ||= { type: 'object' }
+          metadata[:operation][:requestBody][:content][type][:schema][:properties] ||= {}
+          if payload[:required] == true
+            if metadata[:operation][:requestBody][:content][type][:schema][:required].nil? || \
+               !metadata[:operation][:requestBody][:content][type][:schema][:required].is_a?(Array)
+              metadata[:operation][:requestBody][:content][type][:schema][:required] = []
+            end
+            metadata[:operation][:requestBody][:content][type][:schema][:required] << payload[:name].to_s
+            payload.delete(:required)
+          end
+          if payload[:example].present?
+            if metadata[:operation][:requestBody][:content][type][:schema][:example].nil? || \
+               !metadata[:operation][:requestBody][:content][type][:schema][:example].is_a?(Hash)
+              metadata[:operation][:requestBody][:content][type][:schema][:example] = {}
+            end
+            metadata[:operation][:requestBody][:content][type][:schema][:example][payload[:name]] = payload.delete(:example)
+          end
+          name = payload.delete(:name)
+          metadata[:operation][:requestBody][:content][type][:schema][:properties][name] = payload
+        end
+      end
+
       def response(code, description, metadata = {}, &block)
         metadata[:response] = { code: code, description: description }
         context(description, metadata, &block)
