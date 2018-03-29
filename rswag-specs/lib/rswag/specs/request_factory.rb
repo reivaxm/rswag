@@ -19,7 +19,7 @@ module Rswag
           add_verb(request, metadata)
           add_path(request, metadata, swagger_doc, parameters, example)
           add_headers(request, metadata, swagger_doc, parameters, example)
-          add_payload(request, parameters, example)
+          add_payload(request, metadata, swagger_doc, parameters, example)
         end
       end
 
@@ -43,26 +43,20 @@ module Rswag
       def derive_security_params(metadata, swagger_doc)
         requirements = metadata[:operation][:security] || swagger_doc[:security] || []
         scheme_names = requirements.flat_map(&:keys)
-        if swagger_doc[:openapi].present?
-          schemes = (swagger_doc.dig(:components, :securitySchemes) || {}).slice(*scheme_names).values
-
-          schemes.map do |scheme|
-            param = scheme[:type] == :apiKey ? scheme.slice(:name, :in) : { name: 'Authorization', in: :header }
-            param.merge(type: :string, required: requirements.one?)
-          end
-        else
-          schemes = (swagger_doc[:securityDefinitions] || {}).slice(*scheme_names).values
-
-          schemes.map do |scheme|
-            param = scheme[:type] == :apiKey ? scheme.slice(:name, :in) : { name: 'Authorization', in: :header }
-            param.merge(type: :string, required: requirements.one?)
-          end
+        schemes = if swagger_doc[:openapi].present?
+                    swagger_doc.dig(:components, :securitySchemes)
+                  else
+                    swagger_doc[:securityDefinitions]
+                  end || {}
+        schemes.slice(*scheme_names).values.map do |scheme|
+          param = scheme[:type] == :apiKey ? scheme.slice(:name, :in) : { name: 'Authorization', in: :header }
+          param.merge(type: :string, required: requirements.one?)
         end
       end
 
       def explore_request_body_params(metadata)
         (metadata.dig(:operation, :requestBody, :content) || {}).map do |data|
-          required = data[1].dig(:schema, :required)
+          required = data[1].dig(:schema, :required) || []
           (data[1].dig(:schema, :properties) || {}).keys.map { |name| { name: name, required: required.include?(name) } }
         end.flatten
       end
@@ -81,15 +75,17 @@ module Rswag
       def add_path(request, metadata, swagger_doc, parameters, example)
         template = (swagger_doc[:basePath] || '') + metadata[:path_item][:template]
 
-        request[:path] = template.tap do |template|
+        request[:path] = template.tap do |tpl|
           parameters.select { |p| p[:in] == :path }.each do |p|
-            template.gsub!("{#{p[:name]}}", example.send(p[:name]).to_s)
+            tpl.gsub!("{#{p[:name]}}", example.send(p[:name]).to_s)
           end
 
-          parameters.select { |p| p[:in] == :query }.each_with_index do |p, i|
-            template.concat(i == 0 ? '?' : '&')
-            template.concat(build_query_string_part(p, example.send(p[:name])))
+          query_string = []
+          parameters.select { |p| p[:in] == :query }.each do |p|
+            next unless example.try(p[:name])
+            query_string << build_query_string_part(p, example.send(p[:name]))
           end
+          tpl.concat("?#{query_string.join('&')}") unless query_string.empty?
         end
       end
 
@@ -123,14 +119,25 @@ module Rswag
         end.compact
 
         # Accept header
-        produces = metadata[:operation][:produces] || swagger_doc[:produces]
+        produces = if swagger_doc[:openapi].present?
+                     (metadata.dig(:response) || {}).map do |data|
+                       next unless data[0] == :content
+                       (data[1] || {}).keys
+                     end.flatten.compact
+                   else
+                     metadata[:operation][:produces] || swagger_doc[:produces]
+                   end
         if produces
           accept = example.respond_to?(:Accept) ? example.send(:Accept) : produces.first
           tuples << ['Accept', accept]
         end
 
         # Content-Type header
-        consumes = metadata[:operation][:consumes] || swagger_doc[:consumes]
+        consumes = if swagger_doc[:openapi].present?
+                     (metadata.dig(:operation, :requestBody, :content) || {}).keys
+                   else
+                     metadata[:operation][:consumes] || swagger_doc[:consumes]
+                   end
         if consumes
           content_type = example.respond_to?(:'Content-Type') ? example.send(:'Content-Type') : consumes.first
           tuples << ['Content-Type', content_type]
@@ -152,31 +159,44 @@ module Rswag
         request[:headers] = Hash[rackified_tuples]
       end
 
-      def add_payload(request, parameters, example)
+      def add_payload(request, metadata, swagger_doc, parameters, example)
         content_type = request[:headers]['CONTENT_TYPE']
         return if content_type.nil?
 
         if ['application/x-www-form-urlencoded', 'multipart/form-data'].include?(content_type)
-          request[:payload] = build_form_payload(parameters, example)
+          request[:payload] = build_form_payload(metadata, swagger_doc, parameters, example)
         else
-          request[:payload] = build_json_payload(parameters, example)
+          request[:payload] = build_json_payload(metadata, swagger_doc, parameters, example)
         end
       end
 
-      def build_form_payload(parameters, example)
+      def build_form_payload(metadata, swagger_doc, parameters, example)
         # See http://seejohncode.com/2012/04/29/quick-tip-testing-multipart-uploads-with-rspec/
         # Rather that serializing with the appropriate encoding (e.g. multipart/form-data),
         # Rails test infrastructure allows us to send the values directly as a hash
         # PROS: simple to implement, CONS: serialization/deserialization is bypassed in test
-        tuples = parameters
-                 .select { |p| p[:in] == :formData }
-                 .map { |p| [p[:name], example.send(p[:name])] }
+        tuples = if swagger_doc[:openapi].present?
+                   explore_request_body_payload(metadata, example)
+                 else
+                   parameters
+                     .select { |p| p[:in] == :formData }
+                     .map { |p| [p[:name], example.send(p[:name])] }
+                 end
         Hash[tuples]
       end
 
-      def build_json_payload(parameters, example)
+      def build_json_payload(_metadata, _swagger_doc, parameters, example)
         body_param = parameters.select { |p| p[:in] == :body }.first
         body_param ? example.send(body_param[:name]).to_json : nil
+      end
+
+      def explore_request_body_payload(metadata, example)
+        (metadata.dig(:operation, :requestBody, :content) || {}).map do |data|
+          (data[1].dig(:schema, :properties) || {}).keys.map do |name|
+            next unless example.try(name)
+            [name, example.send(name)]
+          end.compact
+        end.try(:first)
       end
     end
   end

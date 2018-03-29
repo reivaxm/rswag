@@ -111,7 +111,7 @@ module Rswag
         metadata[:response][:examples] = example
       end
 
-      def run_test!(&block)
+      def run_test!(args = {}, &block)
         # NOTE: rspec 2.x support
         if RSPEC_VERSION < 3
           before do
@@ -120,16 +120,24 @@ module Rswag
 
           it "returns a #{metadata[:response][:code]} response" do
             assert_response_matches_metadata(metadata)
-            yield(response) if block_given?
+            yield(response) if block
           end
         else
           before do |example|
-            submit_request(example.metadata)
+            submit_request(example.metadata, args[:debug].present?)
           end
 
           it "returns a #{metadata[:response][:code]} response" do |example|
+            if args[:debug].present?
+              puts "#{'=' * 10} BEGIN DEBUG #{'=' * 10}"
+              puts 'Response headers'
+              puts response.headers.inspect
+              puts 'Response body'
+              puts response.body
+              puts "#{'=' * 11} END DEBUG #{'=' * 11}"
+            end
             assert_response_matches_metadata(example.metadata, &block)
-            example.instance_exec(response, &block) if block_given?
+            example.instance_exec(response, &block) if block
           end
         end
       end
