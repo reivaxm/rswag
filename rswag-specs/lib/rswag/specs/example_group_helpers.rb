@@ -2,7 +2,7 @@
 
 module Rswag
   module Specs
-    module ExampleGroupHelpers
+    module ExampleGroupHelpers # :nodoc: # rubocop:disable ModuleLength
       def path(template, metadata = {}, &block)
         metadata[:path_item] = { template: template }
         describe(template, metadata, &block)
@@ -21,9 +21,10 @@ module Rswag
         end
       end
 
-      # NOTE: 'description' requires special treatment because ExampleGroup already
-      # defines a method with that name. Provide an override that supports the existing
-      # functionality while also setting the appropriate metadata if applicable
+      # NOTE: 'description' requires special treatment because ExampleGroup
+      # already defines a method with that name. Provide an override that
+      # supports the existing functionality while also setting the appropriate
+      # metadata if applicable
       def description(value = nil)
         return super() if value.nil?
         metadata[:operation][:description] = value
@@ -36,7 +37,7 @@ module Rswag
         end
       end
 
-      def parameter(attributes)
+      def parameter(attributes) # rubocop:disable AbcSize
         if attributes[:in] && attributes[:in].to_sym == :path
           attributes[:required] = true
         end
@@ -50,7 +51,8 @@ module Rswag
         end
       end
 
-      def request_body(payload) # rubocop:disable AbcSize,PerceivedComplexity
+      # rubocop:disable AbcSize,PerceivedComplexity,MethodLength,LineLength,CyclomaticComplexity
+      def request_body(payload)
         type = payload.delete(:mime) || 'application/x-www-form-urlencoded'
         body_required = payload.delete(:body_required) || type == 'application/x-www-form-urlencoded'
         metadata[:operation][:requestBody] ||= {}
@@ -81,6 +83,7 @@ module Rswag
           metadata[:operation][:requestBody][:content][type][:schema][:properties][name] = payload
         end
       end
+      # rubocop:enable AbcSize,PerceivedComplexity,MethodLength,LineLength,CyclomaticComplexity
 
       def response(code, description, metadata = {}, &block)
         metadata[:response] = { code: code, description: description }
@@ -111,11 +114,11 @@ module Rswag
         metadata[:response][:examples] = example
       end
 
-      def run_test!(args = {}, &block)
+      def run_test!(args = {}, &block) # rubocop:disable AbcSize,MethodLength
         # NOTE: rspec 2.x support
         if RSPEC_VERSION < 3
           before do
-            submit_request(example.metadata)
+            submit_request(example.metadata, args[:debug].present?)
           end
 
           it "returns a #{metadata[:response][:code]} response" do
@@ -124,6 +127,7 @@ module Rswag
           end
         else
           before do |example|
+            args[:before_request].call if args[:before_request].present?
             submit_request(example.metadata, args[:debug].present?)
           end
 
