@@ -83,15 +83,20 @@ module Rswag
           query_string = []
           parameters.select { |p| p[:in] == :query }.each do |p|
             next unless example.try(p[:name])
-            query_string << build_query_string_part(p, example.send(p[:name]))
+            query_string << build_query_string_part(swagger_doc, p, example.send(p[:name]))
           end
           tpl.concat("?#{query_string.join('&')}") unless query_string.empty?
         end
       end
 
-      def build_query_string_part(param, value)
+      def build_query_string_part(swagger_doc, param, value)
         name = param[:name]
-        return "#{name}=#{value}" unless param[:type].to_sym == :array
+        type = if swagger_doc[:openapi].present?
+                 param[:schema][:type]
+               else
+                 param[:type]
+               end
+        return "#{name}=#{value}" unless type.to_sym == :array
 
         case param[:collectionFormat]
         when :ssv
