@@ -118,6 +118,7 @@ module Rswag
         # NOTE: rspec 2.x support
         if RSPEC_VERSION < 3
           before do
+            args[:before_request].call if args[:before_request].present?
             submit_request(example.metadata, args[:debug].present?)
           end
 
