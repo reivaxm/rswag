@@ -53,15 +53,13 @@ module Rswag
 
       # rubocop:disable AbcSize,PerceivedComplexity,MethodLength,LineLength,CyclomaticComplexity
       def request_body(payload)
-        type = payload.delete(:mime) || 'application/x-www-form-urlencoded'
-        body_required = payload.delete(:body_required) || type == 'application/x-www-form-urlencoded'
+        type = payload.delete(:mime) || 'application/json'
+        body_required = payload.delete(:body_required) || type == 'application/json'
         metadata[:operation][:requestBody] ||= {}
         metadata[:operation][:requestBody][:required] = body_required
         metadata[:operation][:requestBody][:content] ||= {}
         metadata[:operation][:requestBody][:content][type] ||= {}
-        if type != 'application/x-www-form-urlencoded'
-          metadata[:operation][:requestBody][:content][type][:schema] = payload
-        else
+        if %w[application/x-www-form-urlencoded multipart/form-data application/json application/xml].include?(type)
           metadata[:operation][:requestBody][:content][type][:schema] ||= { type: 'object' }
           metadata[:operation][:requestBody][:content][type][:schema][:properties] ||= {}
           if payload[:required] == true
@@ -81,6 +79,8 @@ module Rswag
           end
           name = payload.delete(:name)
           metadata[:operation][:requestBody][:content][type][:schema][:properties][name] = payload
+        else
+          metadata[:operation][:requestBody][:content][type][:schema] = payload
         end
       end
       # rubocop:enable AbcSize,PerceivedComplexity,MethodLength,LineLength,CyclomaticComplexity
@@ -114,7 +114,9 @@ module Rswag
         metadata[:response][:examples] = example
       end
 
-      def run_test!(args = {}, &block) # rubocop:disable AbcSize,MethodLength
+      # rubocop:disable AbcSize,MethodLength,
+      # rubocop:disable CyclomaticComplexity,PerceivedComplexity
+      def run_test!(args = {}, &block)
         # NOTE: rspec 2.x support
         if RSPEC_VERSION < 3
           before do
@@ -146,6 +148,8 @@ module Rswag
           end
         end
       end
+      # rubocop:enable AbcSize,MethodLength
+      # rubocop:enable CyclomaticComplexity,PerceivedComplexity
     end
   end
 end
