@@ -190,9 +190,13 @@ module Rswag
         Hash[tuples]
       end
 
-      def build_json_payload(_metadata, _swagger_doc, parameters, example)
-        body_param = parameters.select { |p| p[:in] == :body }.first
-        body_param ? example.send(body_param[:name]).to_json : nil
+      def build_json_payload(metadata, swagger_doc, parameters, example)
+        if swagger_doc[:openapi].present?
+          build_form_payload(metadata, swagger_doc, parameters, example).to_json
+        else
+          body_param = parameters.select { |p| p[:in] == :body }.first
+          body_param ? example.send(body_param[:name]).to_json : nil
+        end
       end
 
       def explore_request_body_payload(metadata, example)
