@@ -9,7 +9,7 @@ module Rswag
       def submit_request(metadata, debug = false)
         request = RequestFactory.new.build_request(metadata, self)
 
-        debug_logger(request) if debug
+        debug_request_logger(request) if debug
 
         if RAILS_VERSION < 5
           send(request[:verb], request[:path],
@@ -20,13 +20,14 @@ module Rswag
         end
       end
 
-      def assert_response_matches_metadata(metadata)
+      def assert_response_matches_metadata(metadata, debug = false)
+        debug_response_logger(response) if debug
         ResponseValidator.new.validate!(metadata, response)
       end
 
       private
 
-      def debug_logger(request) # rubocop:disable AbcSize
+      def debug_request_logger(request) # rubocop:disable AbcSize
         puts "#{'=' * 10} BEGIN DEBUG #{'=' * 10}"
         puts 'Request verb'
         puts request[:verb]
@@ -36,6 +37,15 @@ module Rswag
         puts request[:payload].inspect
         puts 'Request headers'
         puts request[:headers].inspect
+        puts "#{'=' * 11} END DEBUG #{'=' * 11}"
+      end
+
+      def debug_response_logger(response)
+        puts "#{'=' * 10} BEGIN DEBUG #{'=' * 10}"
+        puts 'Response headers'
+        puts response.headers.inspect
+        puts 'Response body'
+        puts response.body
         puts "#{'=' * 11} END DEBUG #{'=' * 11}"
       end
     end

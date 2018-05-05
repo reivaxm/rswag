@@ -59,7 +59,11 @@ module Rswag
         metadata[:operation][:requestBody][:required] = body_required
         metadata[:operation][:requestBody][:content] ||= {}
         metadata[:operation][:requestBody][:content][type] ||= {}
-        if %w[application/x-www-form-urlencoded multipart/form-data application/json application/xml].include?(type)
+        if %w[
+          application/x-www-form-urlencoded
+          multipart/form-data
+          application/json application/xml
+        ].include?(type)
           metadata[:operation][:requestBody][:content][type][:schema] ||= { type: 'object' }
           metadata[:operation][:requestBody][:content][type][:schema][:properties] ||= {}
           if payload[:required] == true
@@ -114,8 +118,7 @@ module Rswag
         metadata[:response][:examples] = example
       end
 
-      # rubocop:disable AbcSize,MethodLength,
-      # rubocop:disable CyclomaticComplexity,PerceivedComplexity
+      # rubocop:disable AbcSize,MethodLength
       def run_test!(args = {}, &block)
         # NOTE: rspec 2.x support
         if RSPEC_VERSION < 3
@@ -125,7 +128,7 @@ module Rswag
           end
 
           it "returns a #{metadata[:response][:code]} response" do
-            assert_response_matches_metadata(metadata)
+            assert_response_matches_metadata(metadata, args[:debug].present?)
             yield(response) if block
           end
         else
@@ -135,21 +138,14 @@ module Rswag
           end
 
           it "returns a #{metadata[:response][:code]} response" do |example|
-            if args[:debug].present?
-              puts "#{'=' * 10} BEGIN DEBUG #{'=' * 10}"
-              puts 'Response headers'
-              puts response.headers.inspect
-              puts 'Response body'
-              puts response.body
-              puts "#{'=' * 11} END DEBUG #{'=' * 11}"
-            end
-            assert_response_matches_metadata(example.metadata, &block)
+            assert_response_matches_metadata(
+              example.metadata, args[:debug].present?
+            )
             example.instance_exec(response, &block) if block
           end
         end
       end
       # rubocop:enable AbcSize,MethodLength
-      # rubocop:enable CyclomaticComplexity,PerceivedComplexity
     end
   end
 end

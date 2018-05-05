@@ -260,7 +260,7 @@ module Rswag
           end
 
           it "sets 'HTTP_AUTHORIZATION' header to example value" do
-            expect(request[:headers]).to eq('HTTP_AUTHORIZATION' => 'Bearer foobar')
+            expect(request[:headers]).to include('HTTP_AUTHORIZATION' => 'Bearer foobar')
           end
         end
 

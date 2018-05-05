@@ -41,7 +41,8 @@ module Rswag
       end
 
       def derive_security_params(metadata, swagger_doc)
-        requirements = metadata[:operation][:security] || swagger_doc[:security] || []
+        requirements = metadata[:operation][:security] || \
+                       swagger_doc[:security] || []
         scheme_names = requirements.flat_map(&:keys)
         schemes = if swagger_doc[:openapi].present?
                     swagger_doc.dig(:components, :securitySchemes)
@@ -49,7 +50,11 @@ module Rswag
                     swagger_doc[:securityDefinitions]
                   end || {}
         schemes.slice(*scheme_names).values.map do |scheme|
-          param = scheme[:type] == :apiKey ? scheme.slice(:name, :in) : { name: 'Authorization', in: :header }
+          param = if scheme[:type] == :apiKey
+                    scheme.slice(:name, :in)
+                  else
+                    { name: 'Authorization', in: :header }
+                  end
           param.merge(type: :string, required: requirements.one?)
         end
       end
@@ -57,14 +62,17 @@ module Rswag
       def explore_request_body_params(metadata)
         (metadata.dig(:operation, :requestBody, :content) || {}).map do |data|
           required = data[1].dig(:schema, :required) || []
-          (data[1].dig(:schema, :properties) || {}).keys.map { |name| { name: name, required: required.include?(name) } }
+          (data[1].dig(:schema, :properties) || {}).keys.map do |name|
+            { name: name, required: required.include?(name) }
+          end
         end.flatten
       end
 
       def resolve_parameter(ref, swagger_doc)
         key = ref.sub('#/parameters/', '').to_sym
         definitions = swagger_doc[:parameters]
-        raise "Referenced parameter '#{ref}' must be defined" unless definitions && definitions[key]
+        raise "Referenced parameter '#{ref}' must be defined" \
+          unless definitions && definitions[key]
         definitions[key]
       end
 
@@ -73,7 +81,8 @@ module Rswag
       end
 
       def add_path(request, metadata, swagger_doc, parameters, example)
-        template = (swagger_doc[:basePath] || '') + metadata[:path_item][:template]
+        template = (swagger_doc[:basePath] || '') + \
+                   metadata[:path_item][:template]
 
         request[:path] = template.tap do |tpl|
           parameters.select { |p| p[:in] == :path }.each do |p|
@@ -83,7 +92,9 @@ module Rswag
           query_string = []
           parameters.select { |p| p[:in] == :query }.each do |p|
             next unless example.try(p[:name])
-            query_string << build_query_string_part(swagger_doc, p, example.send(p[:name]))
+            query_string << build_query_string_part(
+              swagger_doc, p, example.send(p[:name])
+            )
           end
           tpl.concat("?#{query_string.join('&')}") unless query_string.empty?
         end
@@ -168,20 +179,37 @@ module Rswag
         content_type = request[:headers]['CONTENT_TYPE']
         return if content_type.nil?
 
-        if ['application/x-www-form-urlencoded', 'multipart/form-data'].include?(content_type)
-          request[:payload] = build_form_payload(metadata, swagger_doc, parameters, example)
-        else
-          request[:payload] = build_json_payload(metadata, swagger_doc, parameters, example)
-        end
+        request[:payload] = if %w[
+          application/x-www-form-urlencoded
+          multipart/form-data
+        ].include?(content_type)
+                              build_form_payload(
+                                metadata, swagger_doc,
+                                parameters, example,
+                                content_type
+                              )
+                            elsif content_type == 'application/json'
+                              build_json_payload(
+                                metadata, swagger_doc,
+                                parameters, example,
+                                content_type
+                              )
+                            elsif content_type == 'application/xml'
+                              build_xml_payload(
+                                metadata, swagger_doc,
+                                parameters, example,
+                                content_type
+                              )
+                            end
       end
 
-      def build_form_payload(metadata, swagger_doc, parameters, example)
+      def build_form_payload(metadata, swagger_doc, parameters, example, content_type)
         # See http://seejohncode.com/2012/04/29/quick-tip-testing-multipart-uploads-with-rspec/
         # Rather that serializing with the appropriate encoding (e.g. multipart/form-data),
         # Rails test infrastructure allows us to send the values directly as a hash
         # PROS: simple to implement, CONS: serialization/deserialization is bypassed in test
         tuples = if swagger_doc[:openapi].present?
-                   explore_request_body_payload(metadata, example)
+                   explore_request_body_payload(metadata, example, content_type)
                  else
                    parameters
                      .select { |p| p[:in] == :formData }
@@ -190,17 +218,26 @@ module Rswag
         Hash[tuples]
       end
 
-      def build_json_payload(metadata, swagger_doc, parameters, example)
+      def build_json_payload(metadata, swagger_doc, parameters, example, content_type)
         if swagger_doc[:openapi].present?
-          build_form_payload(metadata, swagger_doc, parameters, example).to_json
+          build_form_payload(metadata, swagger_doc, parameters, example, content_type).to_json
         else
           body_param = parameters.select { |p| p[:in] == :body }.first
           body_param ? example.send(body_param[:name]).to_json : nil
         end
       end
 
-      def explore_request_body_payload(metadata, example)
+      def build_xml_payload(metadata, swagger_doc, parameters, example, content_type)
+        root = metadata.dig(:path_item, :template) &.match(%r{/([^/]+)$})
+        root = root[1] || 'root'
+        build_form_payload(
+          metadata, swagger_doc, parameters, example, content_type
+        ).to_xml(root: root)
+      end
+
+      def explore_request_body_payload(metadata, example, content_type)
         (metadata.dig(:operation, :requestBody, :content) || {}).map do |data|
+          next if data[0] != content_type
           (data[1].dig(:schema, :properties) || {}).keys.map do |name|
             next unless example.try(name)
             [name, example.send(name)]
