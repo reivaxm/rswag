@@ -239,10 +239,27 @@ module Rswag
         (metadata.dig(:operation, :requestBody, :content) || {}).map do |data|
           next if data[0] != content_type
           (data[1].dig(:schema, :properties) || {}).keys.map do |name|
-            next unless example.try(name)
-            [name, example.send(name)]
+            node = data[1].dig(:schema, :properties, name)
+            if node &.key?(:properties)
+              [name, Hash[nested_payload(node, example, name)]]
+            else
+              next unless example.try(name)
+              [name, example.send(name)]
+            end
           end.compact
         end.try(:first)
+      end
+
+      def nested_payload(node, data, key, parents_keys=nil)
+        parents_keys = [parents_keys, key].compact.join('/')
+        if node.key?(:properties)
+          node[:properties].keys.map do |nested_key|
+            nested_payload(node[:properties], data, nested_key, parents_keys)
+          end.compact
+        else
+          return unless data.try(parents_keys)
+          [key, data.send(parents_keys)]
+        end
       end
     end
   end

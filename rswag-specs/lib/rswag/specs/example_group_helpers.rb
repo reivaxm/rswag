@@ -51,7 +51,7 @@ module Rswag
         end
       end
 
-      # rubocop:disable AbcSize,PerceivedComplexity,MethodLength,LineLength,CyclomaticComplexity
+      # rubocop:disable AbcSize,MethodLength,LineLength
       def request_body(payload)
         type = payload.delete(:mime) || 'application/json'
         body_required = payload.delete(:body_required) || type == 'application/json'
@@ -64,30 +64,79 @@ module Rswag
           multipart/form-data
           application/json application/xml
         ].include?(type)
-          metadata[:operation][:requestBody][:content][type][:schema] ||= { type: 'object' }
-          metadata[:operation][:requestBody][:content][type][:schema][:properties] ||= {}
-          if payload[:required] == true
-            if metadata[:operation][:requestBody][:content][type][:schema][:required].nil? || \
-               !metadata[:operation][:requestBody][:content][type][:schema][:required].is_a?(Array)
-              metadata[:operation][:requestBody][:content][type][:schema][:required] = []
-            end
-            metadata[:operation][:requestBody][:content][type][:schema][:required] << payload[:name].to_s
-            payload.delete(:required)
-          end
-          if payload[:example].present?
-            if metadata[:operation][:requestBody][:content][type][:schema][:example].nil? || \
-               !metadata[:operation][:requestBody][:content][type][:schema][:example].is_a?(Hash)
-              metadata[:operation][:requestBody][:content][type][:schema][:example] = {}
-            end
-            metadata[:operation][:requestBody][:content][type][:schema][:example][payload[:name]] = payload.delete(:example)
-          end
           name = payload.delete(:name)
-          metadata[:operation][:requestBody][:content][type][:schema][:properties][name] = payload
+          raise(AttributeError, 'Name is missing') if name.blank?
+          base = metadata[:operation][:requestBody][:content][type][:schema]
+          output = node_finder(base, name) do |data, key_name|
+            data = body_payload_requirement(payload, key_name, data)
+            data = body_payload_examples(payload, key_name, data)
+            data[:properties][key_name] = payload
+            data
+          end
+          metadata[:operation][:requestBody][:content][type][:schema] = output
         else
           metadata[:operation][:requestBody][:content][type][:schema] = payload
         end
       end
-      # rubocop:enable AbcSize,PerceivedComplexity,MethodLength,LineLength,CyclomaticComplexity
+      # rubocop:enable AbcSize,MethodLength,LineLength
+      
+      def node_finder(node, name) # rubocop:disable MethodLength,AbcSize
+        node ||= { type: 'object', properties: {} }
+        names = name.to_s.split('/').map(&:to_sym)
+        name = names.pop.to_sym
+        if names.empty?
+          node = yield(node, name)
+        else
+          node_path = names.map{ |n| [:properties, n] }.flatten
+          child_data = node.dig(*node_path)
+          unless child_data
+            builder = Hash.new do |h, k|
+              h = { k.to_sym => { type: 'object', properties: {} }}
+            end
+            tree_path = []
+            names.each do |digged_name|
+              tree_path << :properties
+              tree_path << digged_name
+              next if node.dig(*tree_path)
+              if tree_path.length > 2
+                key_done = tree_path.reject { |p| p == :properties }
+                key_done[0...-1].inject(node) do |acc, key|
+                  acc[:properties].public_send(:[], key)
+                end.public_send(:[]=, :properties, builder[digged_name])
+              else
+                node[:properties] = builder[digged_name]
+              end
+            end
+          end
+          names.inject(node) do |acc, key|
+            acc[:properties].public_send(:[], key)
+          end.merge(yield(node.dig(*node_path), name))
+        end
+        node
+      end
+
+      def body_payload_requirement(payload, name, output = {})
+        if payload[:required] == true
+          if output[:required].nil? || \
+             !output[:required].is_a?(Array)
+            output[:required] = []
+          end
+          output[:required] << name.to_s
+          payload.delete(:required)
+        end
+        output
+      end
+
+      def body_payload_examples(payload, name, output = {})
+        if payload[:example].present?
+          if output[:example].nil? || \
+             !output[:example].is_a?(Hash)
+            output[:example] = {}
+          end
+          output[:example][name] = payload.delete(:example)
+        end
+        output
+      end
 
       def response(code, description, metadata = {}, &block)
         metadata[:response] = { code: code, description: description }

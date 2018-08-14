@@ -22,7 +22,9 @@ module Rswag
         validator,
         options = {}
       )
-        return if data.nil? && current_schema.schema['x-nullable'] == true
+        return if data.nil? && \
+                  (current_schema.schema['x-nullable'] == true || \
+                   current_schema.schema['nullable'] == true)
         super
       end
     end
