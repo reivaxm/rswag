@@ -79,7 +79,7 @@ module Rswag
         end
       end
       # rubocop:enable AbcSize,MethodLength,LineLength
-      
+
       def node_finder(node, name) # rubocop:disable MethodLength,AbcSize
         node ||= { type: 'object', properties: {} }
         names = name.to_s.split('/').map(&:to_sym)

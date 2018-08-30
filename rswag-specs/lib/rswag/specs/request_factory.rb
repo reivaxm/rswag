@@ -102,11 +102,7 @@ module Rswag
 
       def build_query_string_part(swagger_doc, param, value)
         name = param[:name]
-        type = if swagger_doc[:openapi].present?
-                 param[:schema][:type]
-               else
-                 param[:type]
-               end
+        type = param.try(:[], :schema).try(:[], :type) || param[:type]
         return "#{name}=#{value}" unless type.to_sym == :array
 
         case param[:collectionFormat]
