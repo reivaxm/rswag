@@ -32,7 +32,6 @@
 
   <body>
     <div id="swagger-ui"></div>
-
     <%= javascript_include_tag 'swagger-ui-bundle'%>
     <%= javascript_include_tag 'swagger-ui-standalone-preset'%>
     <script>
@@ -40,7 +39,8 @@
 
       // Build a system
       const ui = SwaggerUIBundle({
-        url: '<%= @swagger_endpoints.first.path %>',
+        url: <%= @swagger_endpoints.first.path.to_json.html_safe %>,
+        // urls: <%= @swagger_endpoints.map { |endpoint| { url: endpoint.path, name: endpoint.title } }.to_json.html_safe %>,
         dom_id: '#swagger-ui',
         supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
         onComplete: function(swaggerApi, swaggerUi){
@@ -56,13 +56,16 @@
           }
         },
         onFailure: function(data) {
+          console.error(data);
           log("Unable to Load SwaggerUI");
         },
         docExpansion: "list",
         jsonEditor: false,
         defaultModelRendering: 'schema',
-        showRequestHeaders: false
-      })
+        showRequestHeaders: false,
+        filter: true,
+        deepLinking: true
+      });
 
       window.ui = ui
     }
