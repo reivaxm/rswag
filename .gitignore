@@ -4,4 +4,3 @@
 **/*/*.sqlite3
 **/*/public/assets
 *.swp
-Gemfile.lock
